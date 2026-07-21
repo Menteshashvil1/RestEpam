@@ -1,0 +1,16 @@
+# PostgreSQL setup carried over from the previous module.
+# Run with: mvn spring-boot:run -Dspring-boot.run.profiles=postgres
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/gymcrm
+    driver-class-name: org.postgresql.Driver
+    username: postgres
+    password: postgres
+
+  h2:
+    console:
+      enabled: false
+
+gymcrm:
+  hibernate:
+    hbm2ddl-auto: update

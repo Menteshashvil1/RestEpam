@@ -1,0 +1,34 @@
+<configuration>
+
+    <!-- The transactionId lives in the MDC, so every line of a transaction carries it. -->
+    <property name="PATTERN"
+              value="%d{HH:mm:ss.SSS} [%thread] %-5level [txId=%X{transactionId:-none}] %logger{36} - %msg%n"/>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/gym-crm.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/gym-crm.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>7</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </root>
+
+    <logger name="ge.epam.gymcrm" level="DEBUG"/>
+    <!-- Level 1: transaction boundaries. Level 2: individual REST call details. -->
+    <logger name="TRANSACTION" level="INFO"/>
+    <logger name="REST" level="INFO"/>
+
+</configuration>

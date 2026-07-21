@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: gym-crm-rest
+
+  # Default profile runs on an in-memory H2 database so the API is usable out of the box.
+  # Start with --spring.profiles.active=postgres to use the PostgreSQL database of the
+  # previous module instead.
+  datasource:
+    url: jdbc:h2:mem:gymcrm;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  jackson:
+    default-property-inclusion: non_null
+
+# Hibernate settings consumed by HibernateConfig
+gymcrm:
+  hibernate:
+    hbm2ddl-auto: update
+    show-sql: false
+    format-sql: false
+
+server:
+  port: 8080
+  error:
+    include-message: always
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+  api-docs:
+    path: /v3/api-docs
+
+logging:
+  level:
+    root: INFO
+    ge.epam.gymcrm: DEBUG
+    TRANSACTION: INFO
+    REST: INFO

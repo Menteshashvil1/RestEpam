@@ -1,0 +1,23 @@
+# Tests always run against a fresh in-memory database.
+spring:
+  datasource:
+    url: jdbc:h2:mem:gymcrm-test;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  h2:
+    console:
+      enabled: false
+
+gymcrm:
+  hibernate:
+    hbm2ddl-auto: create-drop
+    show-sql: false
+
+logging:
+  level:
+    root: WARN
+    ge.epam.gymcrm: INFO
+    TRANSACTION: INFO
+    REST: INFO
