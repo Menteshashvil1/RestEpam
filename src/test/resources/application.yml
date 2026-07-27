@@ -1,5 +1,9 @@
-# Tests always run against a fresh in-memory database.
+# Tests always run against a fresh in-memory database under a dedicated 'test' profile,
+# so the environment profiles (local/dev/stg/prod) never leak into the test run.
 spring:
+  profiles:
+    active: test
+
   datasource:
     url: jdbc:h2:mem:gymcrm-test;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
     driver-class-name: org.h2.Driver
@@ -14,6 +18,18 @@ gymcrm:
   hibernate:
     hbm2ddl-auto: create-drop
     show-sql: false
+
+# Mirror the actuator exposure of the main configuration so the endpoint tests are meaningful
+# (the test application.yml shadows the main one on the classpath).
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
 
 logging:
   level:

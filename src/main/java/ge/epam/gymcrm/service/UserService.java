@@ -3,6 +3,7 @@ package ge.epam.gymcrm.service;
 import ge.epam.gymcrm.dao.UserDAO;
 import ge.epam.gymcrm.domain.User;
 import ge.epam.gymcrm.exception.AuthenticationFailedException;
+import ge.epam.gymcrm.metrics.GymMetrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,10 +28,16 @@ public class UserService {
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private UserDAO userDAO;
+    private GymMetrics metrics;
 
     @Autowired
     public void setUserDAO(UserDAO userDAO) {
         this.userDAO = userDAO;
+    }
+
+    @Autowired
+    public void setMetrics(GymMetrics metrics) {
+        this.metrics = metrics;
     }
 
     /**
@@ -50,11 +57,16 @@ public class UserService {
     /** Verifies that the username exists and the password matches. */
     public User authenticate(String username, String password) {
         User user = userDAO.findByUsername(username)
-                .orElseThrow(() -> new AuthenticationFailedException("Invalid username or password"));
+                .orElseGet(() -> {
+                    metrics.recordAuthenticationFailure();
+                    throw new AuthenticationFailedException("Invalid username or password");
+                });
         if (!user.getPassword().equals(password)) {
+            metrics.recordAuthenticationFailure();
             log.warn("Failed authentication attempt for user: {}", username);
             throw new AuthenticationFailedException("Invalid username or password");
         }
+        metrics.recordAuthenticationSuccess();
         return user;
     }
 

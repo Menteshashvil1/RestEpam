@@ -1,0 +1,30 @@
+# PRODUCTION: PostgreSQL production database. All credentials are required from the
+# environment (no defaults) and the schema is only validated, never mutated.
+spring:
+  datasource:
+    url: ${GYMCRM_DB_URL}
+    driver-class-name: org.postgresql.Driver
+    username: ${GYMCRM_DB_USERNAME}
+    password: ${GYMCRM_DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 20
+
+  h2:
+    console:
+      enabled: false
+
+gymcrm:
+  hibernate:
+    hbm2ddl-auto: validate
+    show-sql: false
+    format-sql: false
+
+management:
+  endpoint:
+    health:
+      show-details: when-authorized
+
+logging:
+  level:
+    root: WARN
+    ge.epam.gymcrm: INFO

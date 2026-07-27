@@ -8,6 +8,7 @@ import ge.epam.gymcrm.domain.Training;
 import ge.epam.gymcrm.domain.User;
 import ge.epam.gymcrm.exception.ConflictException;
 import ge.epam.gymcrm.exception.NotFoundException;
+import ge.epam.gymcrm.metrics.GymMetrics;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,6 +38,9 @@ class TraineeServiceTest {
 
     @Mock
     private UserService userService;
+
+    @Mock
+    private GymMetrics metrics;
 
     @InjectMocks
     private TraineeService traineeService;

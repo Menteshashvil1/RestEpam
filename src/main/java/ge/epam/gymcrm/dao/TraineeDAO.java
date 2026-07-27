@@ -64,6 +64,12 @@ public class TraineeDAO {
                 .list();
     }
 
+    public long count() {
+        return sessionFactory.getCurrentSession()
+                .createQuery("SELECT COUNT(t) FROM Trainee t", Long.class)
+                .uniqueResult();
+    }
+
     public void update(Trainee trainee) {
         sessionFactory.getCurrentSession().merge(trainee);
         log.debug("Updated trainee: {}", trainee.getUser().getUsername());

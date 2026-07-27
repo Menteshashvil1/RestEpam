@@ -8,6 +8,7 @@ import ge.epam.gymcrm.domain.TrainingType;
 import ge.epam.gymcrm.domain.User;
 import ge.epam.gymcrm.exception.ConflictException;
 import ge.epam.gymcrm.exception.NotFoundException;
+import ge.epam.gymcrm.metrics.GymMetrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +28,7 @@ public class TrainerService {
     private TraineeDAO traineeDAO;
     private TrainingTypeService trainingTypeService;
     private UserService userService;
+    private GymMetrics metrics;
 
     @Autowired
     public void setTrainerDAO(TrainerDAO trainerDAO) { this.trainerDAO = trainerDAO; }
@@ -41,6 +43,9 @@ public class TrainerService {
 
     @Autowired
     public void setUserService(UserService userService) { this.userService = userService; }
+
+    @Autowired
+    public void setMetrics(GymMetrics metrics) { this.metrics = metrics; }
 
     /**
      * Registers a trainer. The same person cannot hold both a trainer and a trainee
@@ -59,9 +64,16 @@ public class TrainerService {
         trainer.setUser(user);
         trainer.setSpecialization(specialization);
         trainerDAO.save(trainer);
+        metrics.recordTrainerRegistration();
 
         log.info("Registered trainer with username: {}", user.getUsername());
         return trainer;
+    }
+
+    /** Total number of trainer profiles, used by the Prometheus gauge. */
+    @Transactional(readOnly = true)
+    public long count() {
+        return trainerDAO.count();
     }
 
     @Transactional(readOnly = true)

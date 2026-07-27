@@ -63,6 +63,12 @@ public class TrainerDAO {
                 .list();
     }
 
+    public long count() {
+        return sessionFactory.getCurrentSession()
+                .createQuery("SELECT COUNT(t) FROM Trainer t", Long.class)
+                .uniqueResult();
+    }
+
     public void update(Trainer trainer) {
         sessionFactory.getCurrentSession().merge(trainer);
         log.debug("Updated trainer: {}", trainer.getUser().getUsername());

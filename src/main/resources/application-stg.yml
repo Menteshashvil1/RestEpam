@@ -1,0 +1,24 @@
+# STAGING: PostgreSQL staging database. Credentials come from the environment.
+spring:
+  datasource:
+    url: ${GYMCRM_DB_URL:jdbc:postgresql://stg-db:5432/gymcrm_stg}
+    driver-class-name: org.postgresql.Driver
+    username: ${GYMCRM_DB_USERNAME:gymcrm_stg}
+    password: ${GYMCRM_DB_PASSWORD:gymcrm_stg}
+    hikari:
+      maximum-pool-size: 10
+
+  h2:
+    console:
+      enabled: false
+
+gymcrm:
+  hibernate:
+    hbm2ddl-auto: validate
+    show-sql: false
+    format-sql: false
+
+logging:
+  level:
+    root: INFO
+    ge.epam.gymcrm: INFO

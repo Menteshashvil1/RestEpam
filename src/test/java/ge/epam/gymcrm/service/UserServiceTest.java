@@ -3,6 +3,7 @@ package ge.epam.gymcrm.service;
 import ge.epam.gymcrm.dao.UserDAO;
 import ge.epam.gymcrm.domain.User;
 import ge.epam.gymcrm.exception.AuthenticationFailedException;
+import ge.epam.gymcrm.metrics.GymMetrics;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -24,6 +25,9 @@ class UserServiceTest {
 
     @Mock
     private UserDAO userDAO;
+
+    @Mock
+    private GymMetrics metrics;
 
     @InjectMocks
     private UserService userService;

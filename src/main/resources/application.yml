@@ -2,29 +2,14 @@ spring:
   application:
     name: gym-crm-rest
 
-  # Default profile runs on an in-memory H2 database so the API is usable out of the box.
-  # Start with --spring.profiles.active=postgres to use the PostgreSQL database of the
-  # previous module instead.
-  datasource:
-    url: jdbc:h2:mem:gymcrm;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
-
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
+  # Environment is selected via a Spring profile: local, dev, stg or prod.
+  # Each profile carries its own datasource (see application-<profile>.yml).
+  # Override with --spring.profiles.active=dev (or SPRING_PROFILES_ACTIVE).
+  profiles:
+    default: local
 
   jackson:
     default-property-inclusion: non_null
-
-# Hibernate settings consumed by HibernateConfig
-gymcrm:
-  hibernate:
-    hbm2ddl-auto: update
-    show-sql: false
-    format-sql: false
 
 server:
   port: 8080
@@ -37,6 +22,29 @@ springdoc:
     operations-sorter: method
   api-docs:
     path: /v3/api-docs
+
+# Actuator: expose health (with details and custom indicators), info, metrics and the
+# Prometheus scrape endpoint at /actuator/prometheus.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    name: ${spring.application.name}
+    description: Gym CRM REST API (EPAM Spring Boot module)
 
 logging:
   level:

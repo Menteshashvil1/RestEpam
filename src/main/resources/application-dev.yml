@@ -1,0 +1,23 @@
+# DEV: PostgreSQL development database.
+spring:
+  datasource:
+    url: ${GYMCRM_DB_URL:jdbc:postgresql://localhost:5432/gymcrm_dev}
+    driver-class-name: org.postgresql.Driver
+    username: ${GYMCRM_DB_USERNAME:gymcrm_dev}
+    password: ${GYMCRM_DB_PASSWORD:gymcrm_dev}
+    hikari:
+      maximum-pool-size: 5
+
+  h2:
+    console:
+      enabled: false
+
+gymcrm:
+  hibernate:
+    hbm2ddl-auto: update
+    show-sql: true
+    format-sql: false
+
+logging:
+  level:
+    ge.epam.gymcrm: DEBUG

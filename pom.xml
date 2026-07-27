@@ -58,6 +58,19 @@
             <version>${springdoc.version}</version>
         </dependency>
 
+        <!-- Actuator: health, info, metrics endpoints -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- Micrometer Prometheus registry: exposes /actuator/prometheus -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- Databases: H2 for the default profile and tests, PostgreSQL for the 'postgres' profile -->
         <dependency>
             <groupId>com.h2database</groupId>

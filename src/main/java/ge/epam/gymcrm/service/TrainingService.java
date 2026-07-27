@@ -4,6 +4,7 @@ import ge.epam.gymcrm.dao.TrainingDAO;
 import ge.epam.gymcrm.domain.Trainee;
 import ge.epam.gymcrm.domain.Trainer;
 import ge.epam.gymcrm.domain.Training;
+import ge.epam.gymcrm.metrics.GymMetrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +22,7 @@ public class TrainingService {
     private TrainingDAO trainingDAO;
     private TraineeService traineeService;
     private TrainerService trainerService;
+    private GymMetrics metrics;
 
     @Autowired
     public void setTrainingDAO(TrainingDAO trainingDAO) { this.trainingDAO = trainingDAO; }
@@ -30,6 +32,9 @@ public class TrainingService {
 
     @Autowired
     public void setTrainerService(TrainerService trainerService) { this.trainerService = trainerService; }
+
+    @Autowired
+    public void setMetrics(GymMetrics metrics) { this.metrics = metrics; }
 
     /**
      * Adds a training. The training type is not part of the request — it is taken from the
@@ -48,6 +53,7 @@ public class TrainingService {
         training.setTrainingDate(trainingDate);
         training.setTrainingDuration(trainingDuration);
         trainingDAO.save(training);
+        metrics.recordTrainingCreated();
 
         // Adding a training implicitly assigns the trainer to the trainee.
         if (!trainee.getTrainers().contains(trainer)) {
