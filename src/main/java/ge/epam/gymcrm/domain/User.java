@@ -25,6 +25,9 @@ public class User {
     @Column(name = "is_active", nullable = false)
     private boolean isActive;
 
+    @Transient
+    private String rawPassword;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -42,4 +45,7 @@ public class User {
 
     public boolean isActive() { return isActive; }
     public void setActive(boolean active) { isActive = active; }
+
+    public String getRawPassword() { return rawPassword; }
+    public void setRawPassword(String rawPassword) { this.rawPassword = rawPassword; }
 }

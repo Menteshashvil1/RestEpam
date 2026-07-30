@@ -1,7 +1,6 @@
 package ge.epam.gymcrm.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import ge.epam.gymcrm.config.AuthenticationInterceptor;
 import ge.epam.gymcrm.domain.Trainee;
 import ge.epam.gymcrm.domain.Trainer;
 import ge.epam.gymcrm.domain.User;
@@ -9,21 +8,23 @@ import ge.epam.gymcrm.dto.request.ActivationRequest;
 import ge.epam.gymcrm.dto.request.TraineeRegistrationRequest;
 import ge.epam.gymcrm.dto.request.TraineeUpdateRequest;
 import ge.epam.gymcrm.dto.request.UpdateTrainerListRequest;
-import ge.epam.gymcrm.exception.AuthenticationFailedException;
 import ge.epam.gymcrm.exception.ConflictException;
 import ge.epam.gymcrm.exception.NotFoundException;
 import ge.epam.gymcrm.mapper.GymMapper;
+import ge.epam.gymcrm.security.JwtService;
+import ge.epam.gymcrm.security.TokenBlacklistService;
+import ge.epam.gymcrm.service.AuthService;
 import ge.epam.gymcrm.service.TraineeService;
-import ge.epam.gymcrm.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -44,7 +45,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(TraineeController.class)
-@Import({AuthenticationInterceptor.class, GymMapper.class})
+@AutoConfigureMockMvc(addFilters = false)
+@Import(GymMapper.class)
 class TraineeControllerTest {
 
     @Autowired
@@ -57,7 +59,16 @@ class TraineeControllerTest {
     private TraineeService traineeService;
 
     @MockBean
-    private UserService userService;
+    private AuthService authService;
+
+    @MockBean
+    private JwtService jwtService;
+
+    @MockBean
+    private TokenBlacklistService tokenBlacklistService;
+
+    @MockBean
+    private UserDetailsService userDetailsService;
 
     private Trainee trainee;
 
@@ -67,7 +78,8 @@ class TraineeControllerTest {
         user.setFirstName("John");
         user.setLastName("Doe");
         user.setUsername("John.Doe");
-        user.setPassword("generated1");
+        user.setPassword("$2a$hashed");
+        user.setRawPassword("generated1");
         user.setActive(true);
 
         trainee = new Trainee();
@@ -76,18 +88,11 @@ class TraineeControllerTest {
         trainee.setDateOfBirth(LocalDate.of(1995, 4, 23));
         trainee.setAddress("Tbilisi");
 
-        when(userService.authenticate(anyString(), anyString())).thenReturn(user);
-    }
-
-    /** Adds the credentials headers every authenticated endpoint requires. */
-    private MockHttpServletRequestBuilder authenticated(MockHttpServletRequestBuilder builder) {
-        return builder
-                .header(AuthenticationInterceptor.USERNAME_HEADER, "John.Doe")
-                .header(AuthenticationInterceptor.PASSWORD_HEADER, "generated1");
+        when(authService.issueToken(anyString())).thenReturn("jwt-token");
     }
 
     @Test
-    void registerReturnsGeneratedCredentials() throws Exception {
+    void registerReturnsGeneratedCredentialsAndToken() throws Exception {
         when(traineeService.register(eq("John"), eq("Doe"), any(), any())).thenReturn(trainee);
 
         var request = new TraineeRegistrationRequest("John", "Doe", LocalDate.of(1995, 4, 23), "Tbilisi");
@@ -97,7 +102,8 @@ class TraineeControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.username").value("John.Doe"))
-                .andExpect(jsonPath("$.password").value("generated1"));
+                .andExpect(jsonPath("$.password").value("generated1"))
+                .andExpect(jsonPath("$.token").value("jwt-token"));
     }
 
     @Test
@@ -126,26 +132,11 @@ class TraineeControllerTest {
     }
 
     @Test
-    void getProfileRequiresAuthentication() throws Exception {
-        mockMvc.perform(get("/api/v1/trainees/John.Doe"))
-                .andExpect(status().isUnauthorized());
-    }
-
-    @Test
-    void getProfileFailsWithWrongCredentials() throws Exception {
-        when(userService.authenticate(anyString(), anyString()))
-                .thenThrow(new AuthenticationFailedException("Invalid username or password"));
-
-        mockMvc.perform(authenticated(get("/api/v1/trainees/John.Doe")))
-                .andExpect(status().isUnauthorized());
-    }
-
-    @Test
     void getProfileReturnsTheProfileWithTrainers() throws Exception {
         trainee.setTrainers(List.of(trainerNamed("Mary.Smith")));
         when(traineeService.getByUsername("John.Doe")).thenReturn(trainee);
 
-        mockMvc.perform(authenticated(get("/api/v1/trainees/John.Doe")))
+        mockMvc.perform(get("/api/v1/trainees/John.Doe"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.firstName").value("John"))
                 .andExpect(jsonPath("$.lastName").value("Doe"))
@@ -158,7 +149,7 @@ class TraineeControllerTest {
     void getProfileReturnsNotFoundForUnknownTrainee() throws Exception {
         when(traineeService.getByUsername("Ghost")).thenThrow(new NotFoundException("Trainee not found: Ghost"));
 
-        mockMvc.perform(authenticated(get("/api/v1/trainees/Ghost")))
+        mockMvc.perform(get("/api/v1/trainees/Ghost"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404));
     }
@@ -170,7 +161,7 @@ class TraineeControllerTest {
 
         var request = new TraineeUpdateRequest("John", "Doe", LocalDate.of(1995, 4, 23), "Tbilisi", true);
 
-        mockMvc.perform(authenticated(put("/api/v1/trainees/John.Doe"))
+        mockMvc.perform(put("/api/v1/trainees/John.Doe")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -182,7 +173,7 @@ class TraineeControllerTest {
         String body = """
                 {"firstName":"John","lastName":"Doe"}""";
 
-        mockMvc.perform(authenticated(put("/api/v1/trainees/John.Doe"))
+        mockMvc.perform(put("/api/v1/trainees/John.Doe")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest())
@@ -191,7 +182,7 @@ class TraineeControllerTest {
 
     @Test
     void deleteProfileReturnsOk() throws Exception {
-        mockMvc.perform(authenticated(delete("/api/v1/trainees/John.Doe")))
+        mockMvc.perform(delete("/api/v1/trainees/John.Doe"))
                 .andExpect(status().isOk());
 
         verify(traineeService).delete("John.Doe");
@@ -202,7 +193,7 @@ class TraineeControllerTest {
         when(traineeService.getNotAssignedActiveTrainers("John.Doe"))
                 .thenReturn(List.of(trainerNamed("Mary.Smith")));
 
-        mockMvc.perform(authenticated(get("/api/v1/trainees/John.Doe/unassigned-trainers")))
+        mockMvc.perform(get("/api/v1/trainees/John.Doe/unassigned-trainers"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].username").value("Mary.Smith"))
                 .andExpect(jsonPath("$[0].specialization.trainingType").value("Cardio"));
@@ -212,7 +203,7 @@ class TraineeControllerTest {
     void updateTrainersRejectsAnEmptyList() throws Exception {
         var request = new UpdateTrainerListRequest(List.of());
 
-        mockMvc.perform(authenticated(put("/api/v1/trainees/John.Doe/trainers"))
+        mockMvc.perform(put("/api/v1/trainees/John.Doe/trainers")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
@@ -225,7 +216,7 @@ class TraineeControllerTest {
 
         var request = new UpdateTrainerListRequest(List.of("Mary.Smith"));
 
-        mockMvc.perform(authenticated(put("/api/v1/trainees/John.Doe/trainers"))
+        mockMvc.perform(put("/api/v1/trainees/John.Doe/trainers")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -237,7 +228,7 @@ class TraineeControllerTest {
         doThrow(new ConflictException("Trainee John.Doe is already active"))
                 .when(traineeService).setActive(anyString(), anyBoolean());
 
-        mockMvc.perform(authenticated(patch("/api/v1/trainees/John.Doe/status"))
+        mockMvc.perform(patch("/api/v1/trainees/John.Doe/status")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new ActivationRequest(true))))
                 .andExpect(status().isConflict());
@@ -245,7 +236,7 @@ class TraineeControllerTest {
 
     @Test
     void setActiveReturnsOk() throws Exception {
-        mockMvc.perform(authenticated(patch("/api/v1/trainees/John.Doe/status"))
+        mockMvc.perform(patch("/api/v1/trainees/John.Doe/status")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new ActivationRequest(false))))
                 .andExpect(status().isOk());

@@ -1,7 +1,6 @@
 package ge.epam.gymcrm.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import ge.epam.gymcrm.config.AuthenticationInterceptor;
 import ge.epam.gymcrm.domain.Trainee;
 import ge.epam.gymcrm.domain.Trainer;
 import ge.epam.gymcrm.domain.Training;
@@ -12,17 +11,20 @@ import ge.epam.gymcrm.dto.request.TrainerRegistrationRequest;
 import ge.epam.gymcrm.dto.request.TrainerUpdateRequest;
 import ge.epam.gymcrm.exception.NotFoundException;
 import ge.epam.gymcrm.mapper.GymMapper;
+import ge.epam.gymcrm.security.JwtService;
+import ge.epam.gymcrm.security.TokenBlacklistService;
+import ge.epam.gymcrm.service.AuthService;
 import ge.epam.gymcrm.service.TrainerService;
-import ge.epam.gymcrm.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -40,7 +42,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(TrainerController.class)
-@Import({AuthenticationInterceptor.class, GymMapper.class})
+@AutoConfigureMockMvc(addFilters = false)
+@Import(GymMapper.class)
 class TrainerControllerTest {
 
     @Autowired
@@ -53,7 +56,16 @@ class TrainerControllerTest {
     private TrainerService trainerService;
 
     @MockBean
-    private UserService userService;
+    private AuthService authService;
+
+    @MockBean
+    private JwtService jwtService;
+
+    @MockBean
+    private TokenBlacklistService tokenBlacklistService;
+
+    @MockBean
+    private UserDetailsService userDetailsService;
 
     private Trainer trainer;
     private TrainingType cardio;
@@ -68,7 +80,8 @@ class TrainerControllerTest {
         user.setFirstName("Mary");
         user.setLastName("Smith");
         user.setUsername("Mary.Smith");
-        user.setPassword("generated1");
+        user.setPassword("$2a$hashed");
+        user.setRawPassword("generated1");
         user.setActive(true);
 
         trainer = new Trainer();
@@ -76,17 +89,11 @@ class TrainerControllerTest {
         trainer.setUser(user);
         trainer.setSpecialization(cardio);
 
-        when(userService.authenticate(anyString(), anyString())).thenReturn(user);
-    }
-
-    private MockHttpServletRequestBuilder authenticated(MockHttpServletRequestBuilder builder) {
-        return builder
-                .header(AuthenticationInterceptor.USERNAME_HEADER, "Mary.Smith")
-                .header(AuthenticationInterceptor.PASSWORD_HEADER, "generated1");
+        when(authService.issueToken(anyString())).thenReturn("jwt-token");
     }
 
     @Test
-    void registerReturnsGeneratedCredentials() throws Exception {
+    void registerReturnsGeneratedCredentialsAndToken() throws Exception {
         when(trainerService.register("Mary", "Smith", 1L)).thenReturn(trainer);
 
         var request = new TrainerRegistrationRequest("Mary", "Smith", 1L);
@@ -96,7 +103,8 @@ class TrainerControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.username").value("Mary.Smith"))
-                .andExpect(jsonPath("$.password").value("generated1"));
+                .andExpect(jsonPath("$.password").value("generated1"))
+                .andExpect(jsonPath("$.token").value("jwt-token"));
     }
 
     @Test
@@ -128,7 +136,7 @@ class TrainerControllerTest {
         trainer.setTrainees(List.of(traineeNamed("John.Doe")));
         when(trainerService.getByUsername("Mary.Smith")).thenReturn(trainer);
 
-        mockMvc.perform(authenticated(get("/api/v1/trainers/Mary.Smith")))
+        mockMvc.perform(get("/api/v1/trainers/Mary.Smith"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.firstName").value("Mary"))
                 .andExpect(jsonPath("$.specialization.trainingType").value("Cardio"))
@@ -138,18 +146,12 @@ class TrainerControllerTest {
     }
 
     @Test
-    void getProfileRequiresAuthentication() throws Exception {
-        mockMvc.perform(get("/api/v1/trainers/Mary.Smith"))
-                .andExpect(status().isUnauthorized());
-    }
-
-    @Test
     void updateProfileIgnoresSpecializationAndReturnsIt() throws Exception {
         when(trainerService.update("Mary.Smith", "Marianne", "Smith", true)).thenReturn(trainer);
 
         var request = new TrainerUpdateRequest("Marianne", "Smith", true);
 
-        mockMvc.perform(authenticated(put("/api/v1/trainers/Mary.Smith"))
+        mockMvc.perform(put("/api/v1/trainers/Mary.Smith")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -163,7 +165,7 @@ class TrainerControllerTest {
                 eq(LocalDate.of(2026, 12, 31)), eq("John")))
                 .thenReturn(List.of(training()));
 
-        mockMvc.perform(authenticated(get("/api/v1/trainers/Mary.Smith/trainings"))
+        mockMvc.perform(get("/api/v1/trainers/Mary.Smith/trainings")
                         .param("periodFrom", "2026-01-01")
                         .param("periodTo", "2026-12-31")
                         .param("traineeName", "John"))
@@ -176,7 +178,7 @@ class TrainerControllerTest {
 
     @Test
     void setActiveReturnsOk() throws Exception {
-        mockMvc.perform(authenticated(patch("/api/v1/trainers/Mary.Smith/status"))
+        mockMvc.perform(patch("/api/v1/trainers/Mary.Smith/status")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new ActivationRequest(false))))
                 .andExpect(status().isOk());

@@ -19,6 +19,15 @@ gymcrm:
     hbm2ddl-auto: create-drop
     show-sql: false
 
+# Security settings for tests (the test application.yml shadows the main one on the classpath).
+security:
+  jwt:
+    secret: test-secret-test-secret-test-secret-0123456789-abcdef
+    expiration-minutes: 60
+  cors:
+    allowed-origins: "*"
+    allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
+
 # Mirror the actuator exposure of the main configuration so the endpoint tests are meaningful
 # (the test application.yml shadows the main one on the classpath).
 management:
