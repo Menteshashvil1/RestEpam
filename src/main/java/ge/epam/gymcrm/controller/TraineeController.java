@@ -11,6 +11,7 @@ import ge.epam.gymcrm.dto.response.TraineeProfileResponse;
 import ge.epam.gymcrm.dto.response.TraineeTrainingResponse;
 import ge.epam.gymcrm.dto.response.TrainerSummaryResponse;
 import ge.epam.gymcrm.mapper.GymMapper;
+import ge.epam.gymcrm.service.AuthService;
 import ge.epam.gymcrm.service.TraineeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -46,11 +47,13 @@ import java.util.List;
 public class TraineeController {
 
     private final TraineeService traineeService;
+    private final AuthService authService;
     private final GymMapper mapper;
 
     @Autowired
-    public TraineeController(TraineeService traineeService, GymMapper mapper) {
+    public TraineeController(TraineeService traineeService, AuthService authService, GymMapper mapper) {
         this.traineeService = traineeService;
+        this.authService = authService;
         this.mapper = mapper;
     }
 
@@ -71,8 +74,9 @@ public class TraineeController {
         Trainee trainee = traineeService.register(
                 request.firstName(), request.lastName(), request.dateOfBirth(), request.address());
 
+        String username = trainee.getUser().getUsername();
         CredentialsResponse body = new CredentialsResponse(
-                trainee.getUser().getUsername(), trainee.getUser().getPassword());
+                username, trainee.getUser().getRawPassword(), authService.issueToken(username));
         return ResponseEntity.status(HttpStatus.CREATED).body(body);
     }
 

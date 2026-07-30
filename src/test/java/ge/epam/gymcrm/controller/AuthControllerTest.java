@@ -1,32 +1,34 @@
 package ge.epam.gymcrm.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import ge.epam.gymcrm.config.AuthenticationInterceptor;
-import ge.epam.gymcrm.domain.User;
 import ge.epam.gymcrm.dto.request.ChangePasswordRequest;
+import ge.epam.gymcrm.dto.request.LoginRequest;
 import ge.epam.gymcrm.exception.AuthenticationFailedException;
-import ge.epam.gymcrm.logging.TransactionContext;
+import ge.epam.gymcrm.exception.TooManyAttemptsException;
+import ge.epam.gymcrm.security.JwtService;
+import ge.epam.gymcrm.security.TokenBlacklistService;
+import ge.epam.gymcrm.service.AuthService;
 import ge.epam.gymcrm.service.UserService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AuthController.class)
-@Import(AuthenticationInterceptor.class)
+@AutoConfigureMockMvc(addFilters = false)
 class AuthControllerTest {
 
     @Autowired
@@ -36,44 +38,62 @@ class AuthControllerTest {
     private ObjectMapper objectMapper;
 
     @MockBean
+    private AuthService authService;
+
+    @MockBean
     private UserService userService;
 
-    @Test
-    void loginReturnsOkForMatchingCredentials() throws Exception {
-        when(userService.authenticate("John.Doe", "secret")).thenReturn(new User());
+    @MockBean
+    private JwtService jwtService;
 
-        mockMvc.perform(get("/api/v1/auth/login")
-                        .param("username", "John.Doe")
-                        .param("password", "secret"))
-                .andExpect(status().isOk());
+    @MockBean
+    private TokenBlacklistService tokenBlacklistService;
+
+    @MockBean
+    private UserDetailsService userDetailsService;
+
+    @Test
+    void loginReturnsTokenForMatchingCredentials() throws Exception {
+        when(authService.login("John.Doe", "secret")).thenReturn("jwt-token");
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new LoginRequest("John.Doe", "secret"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.username").value("John.Doe"))
+                .andExpect(jsonPath("$.token").value("jwt-token"));
     }
 
     @Test
     void loginReturnsUnauthorizedForWrongCredentials() throws Exception {
-        when(userService.authenticate(anyString(), anyString()))
+        when(authService.login(anyString(), anyString()))
                 .thenThrow(new AuthenticationFailedException("Invalid username or password"));
 
-        mockMvc.perform(get("/api/v1/auth/login")
-                        .param("username", "John.Doe")
-                        .param("password", "wrong"))
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new LoginRequest("John.Doe", "wrong"))))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.status").value(401));
     }
 
     @Test
-    void loginRequiresThePasswordParameter() throws Exception {
-        mockMvc.perform(get("/api/v1/auth/login").param("username", "John.Doe"))
-                .andExpect(status().isBadRequest());
+    void loginReturnsTooManyRequestsWhenBlocked() throws Exception {
+        when(authService.login(anyString(), anyString()))
+                .thenThrow(new TooManyAttemptsException("Too many failed login attempts."));
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new LoginRequest("John.Doe", "wrong"))))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.status").value(429));
     }
 
     @Test
-    void everyResponseCarriesTheTransactionId() throws Exception {
-        when(userService.authenticate("John.Doe", "secret")).thenReturn(new User());
-
-        mockMvc.perform(get("/api/v1/auth/login")
-                        .param("username", "John.Doe")
-                        .param("password", "secret"))
-                .andExpect(header().exists(TransactionContext.TRANSACTION_ID_HEADER));
+    void loginRequiresThePassword() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"John.Doe\"}"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

@@ -3,13 +3,14 @@ package ge.epam.gymcrm.service;
 import ge.epam.gymcrm.dao.UserDAO;
 import ge.epam.gymcrm.domain.User;
 import ge.epam.gymcrm.exception.AuthenticationFailedException;
-import ge.epam.gymcrm.metrics.GymMetrics;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
 import java.util.Optional;
@@ -26,18 +27,22 @@ class UserServiceTest {
     @Mock
     private UserDAO userDAO;
 
-    @Mock
-    private GymMetrics metrics;
-
-    @InjectMocks
+    private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     private UserService userService;
 
-    private User user(String username, String password) {
+    @BeforeEach
+    void setUp() {
+        userService = new UserService();
+        userService.setUserDAO(userDAO);
+        userService.setPasswordEncoder(passwordEncoder);
+    }
+
+    private User user(String username, String rawPassword) {
         User user = new User();
         user.setFirstName("John");
         user.setLastName("Doe");
         user.setUsername(username);
-        user.setPassword(password);
+        user.setPassword(passwordEncoder.encode(rawPassword));
         user.setActive(true);
         return user;
     }
@@ -63,41 +68,18 @@ class UserServiceTest {
     }
 
     @Test
-    void createUserGeneratesTenCharacterPassword() {
+    void createUserStoresAHashButExposesTheRawPasswordOnce() {
         when(userDAO.findUsernamesStartingWith(anyString())).thenReturn(List.of());
 
         User created = userService.createUser("John", "Doe");
 
-        assertThat(created.getPassword()).hasSize(10).matches("[A-Za-z0-9]+");
+        assertThat(created.getRawPassword()).hasSize(10).matches("[A-Za-z0-9]+");
+        assertThat(created.getPassword()).isNotEqualTo(created.getRawPassword());
+        assertThat(passwordEncoder.matches(created.getRawPassword(), created.getPassword())).isTrue();
     }
 
     @Test
-    void authenticateReturnsUserWhenPasswordMatches() {
-        when(userDAO.findByUsername("John.Doe")).thenReturn(Optional.of(user("John.Doe", "secret")));
-
-        User authenticated = userService.authenticate("John.Doe", "secret");
-
-        assertThat(authenticated.getUsername()).isEqualTo("John.Doe");
-    }
-
-    @Test
-    void authenticateFailsOnWrongPassword() {
-        when(userDAO.findByUsername("John.Doe")).thenReturn(Optional.of(user("John.Doe", "secret")));
-
-        assertThatThrownBy(() -> userService.authenticate("John.Doe", "wrong"))
-                .isInstanceOf(AuthenticationFailedException.class);
-    }
-
-    @Test
-    void authenticateFailsOnUnknownUser() {
-        when(userDAO.findByUsername("Nobody")).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> userService.authenticate("Nobody", "secret"))
-                .isInstanceOf(AuthenticationFailedException.class);
-    }
-
-    @Test
-    void changePasswordStoresTheNewPassword() {
+    void changePasswordStoresTheNewHashedPassword() {
         User stored = user("John.Doe", "oldPassword");
         when(userDAO.findByUsername("John.Doe")).thenReturn(Optional.of(stored));
 
@@ -105,7 +87,7 @@ class UserServiceTest {
 
         ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
         verify(userDAO).update(captor.capture());
-        assertThat(captor.getValue().getPassword()).isEqualTo("newPassword");
+        assertThat(passwordEncoder.matches("newPassword", captor.getValue().getPassword())).isTrue();
     }
 
     @Test
@@ -113,6 +95,14 @@ class UserServiceTest {
         when(userDAO.findByUsername("John.Doe")).thenReturn(Optional.of(user("John.Doe", "oldPassword")));
 
         assertThatThrownBy(() -> userService.changePassword("John.Doe", "wrong", "newPassword"))
+                .isInstanceOf(AuthenticationFailedException.class);
+    }
+
+    @Test
+    void changePasswordFailsForUnknownUser() {
+        when(userDAO.findByUsername("Nobody")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.changePassword("Nobody", "old", "newPassword"))
                 .isInstanceOf(AuthenticationFailedException.class);
     }
 }

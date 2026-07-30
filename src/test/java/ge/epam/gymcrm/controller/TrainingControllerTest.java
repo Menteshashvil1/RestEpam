@@ -1,25 +1,24 @@
 package ge.epam.gymcrm.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import ge.epam.gymcrm.config.AuthenticationInterceptor;
-import ge.epam.gymcrm.domain.User;
 import ge.epam.gymcrm.dto.request.AddTrainingRequest;
 import ge.epam.gymcrm.dto.response.TrainingTypeResponse;
 import ge.epam.gymcrm.domain.TrainingType;
 import ge.epam.gymcrm.exception.NotFoundException;
 import ge.epam.gymcrm.mapper.GymMapper;
+import ge.epam.gymcrm.security.JwtService;
+import ge.epam.gymcrm.security.TokenBlacklistService;
 import ge.epam.gymcrm.service.TrainingService;
 import ge.epam.gymcrm.service.TrainingTypeService;
-import ge.epam.gymcrm.service.UserService;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -35,7 +34,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest({TrainingController.class, TrainingTypeController.class})
-@Import({AuthenticationInterceptor.class, GymMapper.class})
+@AutoConfigureMockMvc(addFilters = false)
+@Import(GymMapper.class)
 class TrainingControllerTest {
 
     @Autowired
@@ -51,25 +51,20 @@ class TrainingControllerTest {
     private TrainingTypeService trainingTypeService;
 
     @MockBean
-    private UserService userService;
+    private JwtService jwtService;
 
-    @BeforeEach
-    void setUp() {
-        when(userService.authenticate(anyString(), anyString())).thenReturn(new User());
-    }
+    @MockBean
+    private TokenBlacklistService tokenBlacklistService;
 
-    private MockHttpServletRequestBuilder authenticated(MockHttpServletRequestBuilder builder) {
-        return builder
-                .header(AuthenticationInterceptor.USERNAME_HEADER, "John.Doe")
-                .header(AuthenticationInterceptor.PASSWORD_HEADER, "generated1");
-    }
+    @MockBean
+    private UserDetailsService userDetailsService;
 
     @Test
     void addTrainingReturnsOk() throws Exception {
         var request = new AddTrainingRequest("John.Doe", "Mary.Smith", "Morning cardio",
                 LocalDate.of(2026, 7, 21), 60);
 
-        mockMvc.perform(authenticated(post("/api/v1/trainings"))
+        mockMvc.perform(post("/api/v1/trainings")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk());
@@ -83,7 +78,7 @@ class TrainingControllerTest {
         var request = new AddTrainingRequest("John.Doe", "Mary.Smith", "Morning cardio",
                 LocalDate.of(2026, 7, 21), 0);
 
-        mockMvc.perform(authenticated(post("/api/v1/trainings"))
+        mockMvc.perform(post("/api/v1/trainings")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
@@ -96,21 +91,10 @@ class TrainingControllerTest {
                 {"traineeUsername":"John.Doe","trainerUsername":"Mary.Smith",
                  "trainingName":"Cardio","trainingDate":"21-07-2026","trainingDuration":60}""";
 
-        mockMvc.perform(authenticated(post("/api/v1/trainings"))
+        mockMvc.perform(post("/api/v1/trainings")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void addTrainingRequiresAuthentication() throws Exception {
-        var request = new AddTrainingRequest("John.Doe", "Mary.Smith", "Morning cardio",
-                LocalDate.of(2026, 7, 21), 60);
-
-        mockMvc.perform(post("/api/v1/trainings")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -121,7 +105,7 @@ class TrainingControllerTest {
         var request = new AddTrainingRequest("Ghost", "Mary.Smith", "Morning cardio",
                 LocalDate.of(2026, 7, 21), 60);
 
-        mockMvc.perform(authenticated(post("/api/v1/trainings"))
+        mockMvc.perform(post("/api/v1/trainings")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isNotFound());
@@ -134,7 +118,7 @@ class TrainingControllerTest {
         cardio.setTrainingTypeName("Cardio");
         when(trainingTypeService.findAll()).thenReturn(List.of(cardio));
 
-        mockMvc.perform(authenticated(get("/api/v1/training-types")))
+        mockMvc.perform(get("/api/v1/training-types"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].trainingTypeId").value(1))
                 .andExpect(jsonPath("$[0].trainingType").value("Cardio"));

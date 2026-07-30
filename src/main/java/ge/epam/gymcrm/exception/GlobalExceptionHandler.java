@@ -21,7 +21,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/** Turns every exception raised by the REST layer into the common {@link ErrorResponse} payload. */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -79,6 +78,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleConflict(ConflictException ex, HttpServletRequest request) {
         log.warn("Conflict on {}: {}", request.getRequestURI(), ex.getMessage());
         return build(HttpStatus.CONFLICT, ex.getMessage(), request, null);
+    }
+
+    @ExceptionHandler(TooManyAttemptsException.class)
+    public ResponseEntity<ErrorResponse> handleTooManyAttempts(TooManyAttemptsException ex,
+                                                               HttpServletRequest request) {
+        log.warn("Too many attempts on {}: {}", request.getRequestURI(), ex.getMessage());
+        return build(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage(), request, null);
     }
 
     @ExceptionHandler(Exception.class)

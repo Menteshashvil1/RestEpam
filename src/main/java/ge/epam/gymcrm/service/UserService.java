@@ -3,10 +3,10 @@ package ge.epam.gymcrm.service;
 import ge.epam.gymcrm.dao.UserDAO;
 import ge.epam.gymcrm.domain.User;
 import ge.epam.gymcrm.exception.AuthenticationFailedException;
-import ge.epam.gymcrm.metrics.GymMetrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,10 +14,6 @@ import java.security.SecureRandom;
 import java.util.HashSet;
 import java.util.Set;
 
-/**
- * Credential concerns shared by trainees and trainers: username generation, password
- * generation and username/password matching.
- */
 @Service
 @Transactional
 public class UserService {
@@ -28,7 +24,7 @@ public class UserService {
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private UserDAO userDAO;
-    private GymMetrics metrics;
+    private PasswordEncoder passwordEncoder;
 
     @Autowired
     public void setUserDAO(UserDAO userDAO) {
@@ -36,47 +32,36 @@ public class UserService {
     }
 
     @Autowired
-    public void setMetrics(GymMetrics metrics) {
-        this.metrics = metrics;
+    public void setPasswordEncoder(PasswordEncoder passwordEncoder) {
+        this.passwordEncoder = passwordEncoder;
     }
 
-    /**
-     * Builds a new user with the credentials generated as described in the previous modules:
-     * username is {@code firstName.lastName}, suffixed with a serial number when taken.
-     */
     public User createUser(String firstName, String lastName) {
+        String rawPassword = generatePassword();
+
         User user = new User();
         user.setFirstName(firstName);
         user.setLastName(lastName);
         user.setUsername(generateUsername(firstName, lastName));
-        user.setPassword(generatePassword());
+        user.setPassword(passwordEncoder.encode(rawPassword));
+        user.setRawPassword(rawPassword);
         user.setActive(true);
         return user;
     }
 
-    /** Verifies that the username exists and the password matches. */
-    public User authenticate(String username, String password) {
+    public void changePassword(String username, String oldPassword, String newPassword) {
         User user = userDAO.findByUsername(username)
-                .orElseGet(() -> {
-                    metrics.recordAuthenticationFailure();
-                    throw new AuthenticationFailedException("Invalid username or password");
-                });
-        if (!user.getPassword().equals(password)) {
-            metrics.recordAuthenticationFailure();
-            log.warn("Failed authentication attempt for user: {}", username);
+                .orElseThrow(() -> new AuthenticationFailedException("Invalid username or password"));
+        if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
+            log.warn("Failed password change attempt for user: {}", username);
             throw new AuthenticationFailedException("Invalid username or password");
         }
-        metrics.recordAuthenticationSuccess();
-        return user;
-    }
-
-    public void changePassword(String username, String oldPassword, String newPassword) {
-        User user = authenticate(username, oldPassword);
-        user.setPassword(newPassword);
+        user.setPassword(passwordEncoder.encode(newPassword));
         userDAO.update(user);
         log.info("Password changed for user: {}", username);
     }
 
+    @Transactional(readOnly = true)
     public boolean usernameExists(String username) {
         return userDAO.findByUsername(username).isPresent();
     }
