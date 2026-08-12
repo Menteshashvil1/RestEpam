@@ -4,7 +4,9 @@ import ge.epam.gymcrm.dao.TrainingDAO;
 import ge.epam.gymcrm.domain.Trainee;
 import ge.epam.gymcrm.domain.Trainer;
 import ge.epam.gymcrm.domain.Training;
+import ge.epam.gymcrm.exception.NotFoundException;
 import ge.epam.gymcrm.metrics.GymMetrics;
+import ge.epam.gymcrm.workload.WorkloadNotifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +25,7 @@ public class TrainingService {
     private TraineeService traineeService;
     private TrainerService trainerService;
     private GymMetrics metrics;
+    private WorkloadNotifier workloadNotifier;
 
     @Autowired
     public void setTrainingDAO(TrainingDAO trainingDAO) { this.trainingDAO = trainingDAO; }
@@ -35,6 +38,11 @@ public class TrainingService {
 
     @Autowired
     public void setMetrics(GymMetrics metrics) { this.metrics = metrics; }
+
+    @Autowired
+    public void setWorkloadNotifier(WorkloadNotifier workloadNotifier) {
+        this.workloadNotifier = workloadNotifier;
+    }
 
     /**
      * Adds a training. The training type is not part of the request — it is taken from the
@@ -60,8 +68,26 @@ public class TrainingService {
             trainee.getTrainers().add(trainer);
         }
 
+        // Forward the added workload to the secondary microservice.
+        workloadNotifier.notifyAdded(training);
+
         log.info("Added training '{}' for trainee {} with trainer {}",
                 trainingName, traineeUsername, trainerUsername);
         return training;
+    }
+
+    /**
+     * Deletes a training and removes its hours from the trainer's workload summary.
+     * A training is deleted, for example, when a planned session is cancelled.
+     */
+    public void deleteTraining(Long trainingId) {
+        Training training = trainingDAO.findById(trainingId)
+                .orElseThrow(() -> new NotFoundException("Training not found: " + trainingId));
+
+        // Notify before removal while the trainer/date/duration are still available.
+        workloadNotifier.notifyDeleted(training);
+
+        trainingDAO.delete(training);
+        log.info("Deleted training {} ('{}')", trainingId, training.getTrainingName());
     }
 }

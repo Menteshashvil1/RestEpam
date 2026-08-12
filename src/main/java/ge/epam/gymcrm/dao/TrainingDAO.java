@@ -31,6 +31,11 @@ public class TrainingDAO {
         return Optional.ofNullable(sessionFactory.getCurrentSession().get(Training.class, id));
     }
 
+    public void delete(Training training) {
+        sessionFactory.getCurrentSession().remove(training);
+        log.debug("Deleted training: {}", training.getTrainingName());
+    }
+
     public List<Training> findAll() {
         return sessionFactory.getCurrentSession()
                 .createQuery("FROM Training", Training.class)

@@ -9,6 +9,7 @@ import ge.epam.gymcrm.domain.User;
 import ge.epam.gymcrm.exception.ConflictException;
 import ge.epam.gymcrm.exception.NotFoundException;
 import ge.epam.gymcrm.metrics.GymMetrics;
+import ge.epam.gymcrm.workload.WorkloadNotifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,6 +30,7 @@ public class TraineeService {
     private TrainerDAO trainerDAO;
     private UserService userService;
     private GymMetrics metrics;
+    private WorkloadNotifier workloadNotifier;
 
     @Autowired
     public void setTraineeDAO(TraineeDAO traineeDAO) { this.traineeDAO = traineeDAO; }
@@ -41,6 +43,11 @@ public class TraineeService {
 
     @Autowired
     public void setMetrics(GymMetrics metrics) { this.metrics = metrics; }
+
+    @Autowired
+    public void setWorkloadNotifier(WorkloadNotifier workloadNotifier) {
+        this.workloadNotifier = workloadNotifier;
+    }
 
     /**
      * Registers a trainee. The same person cannot hold both a trainer and a trainee
@@ -91,9 +98,18 @@ public class TraineeService {
         return trainee;
     }
 
-    /** Hard delete — the cascade removes the trainee's trainings as well. */
+    /**
+     * Hard delete — the cascade removes the trainee's trainings as well. Every removed training
+     * is reported to the workload microservice as a DELETE so the trainers' monthly summaries
+     * are decremented accordingly.
+     */
     public void delete(String username) {
         Trainee trainee = getByUsername(username);
+
+        for (Training training : new ArrayList<>(trainee.getTrainings())) {
+            workloadNotifier.notifyDeleted(training);
+        }
+
         traineeDAO.delete(trainee);
         log.info("Deleted trainee profile: {}", username);
     }

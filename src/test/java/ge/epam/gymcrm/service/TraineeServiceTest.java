@@ -42,6 +42,9 @@ class TraineeServiceTest {
     @Mock
     private GymMetrics metrics;
 
+    @Mock
+    private ge.epam.gymcrm.workload.WorkloadNotifier workloadNotifier;
+
     @InjectMocks
     private TraineeService traineeService;
 
@@ -128,6 +131,27 @@ class TraineeServiceTest {
 
         traineeService.delete("John.Doe");
 
+        verify(traineeDAO).delete(trainee);
+    }
+
+    @Test
+    void deleteReportsEachTrainingToTheWorkloadService() {
+        Training first = new Training();
+        first.setTrainer(trainer("Mary.Smith"));
+        first.setTrainingDate(LocalDate.of(2026, 7, 1));
+        first.setTrainingDuration(60);
+        Training second = new Training();
+        second.setTrainer(trainer("Anna.Jones"));
+        second.setTrainingDate(LocalDate.of(2026, 8, 1));
+        second.setTrainingDuration(30);
+        trainee.getTrainings().add(first);
+        trainee.getTrainings().add(second);
+        when(traineeDAO.findByUsername("John.Doe")).thenReturn(Optional.of(trainee));
+
+        traineeService.delete("John.Doe");
+
+        verify(workloadNotifier).notifyDeleted(first);
+        verify(workloadNotifier).notifyDeleted(second);
         verify(traineeDAO).delete(trainee);
     }
 

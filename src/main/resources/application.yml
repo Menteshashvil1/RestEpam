@@ -16,6 +16,31 @@ server:
   error:
     include-message: always
 
+# Register with the Eureka discovery service and resolve the workload service by its id.
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVICE_URL:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+
+# Route Feign calls through the Resilience4j circuit breaker so a workload-service outage
+# is handled by the fallback instead of breaking the main flow.
+spring.cloud.openfeign.circuitbreaker.enabled: true
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      trainer-workload-service:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+  timelimiter:
+    instances:
+      trainer-workload-service:
+        timeout-duration: 5s
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
