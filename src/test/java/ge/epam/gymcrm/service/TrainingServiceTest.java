@@ -8,6 +8,7 @@ import ge.epam.gymcrm.domain.TrainingType;
 import ge.epam.gymcrm.domain.User;
 import ge.epam.gymcrm.exception.NotFoundException;
 import ge.epam.gymcrm.metrics.GymMetrics;
+import ge.epam.gymcrm.workload.WorkloadNotifier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,6 +38,9 @@ class TrainingServiceTest {
 
     @Mock
     private GymMetrics metrics;
+
+    @Mock
+    private WorkloadNotifier workloadNotifier;
 
     @InjectMocks
     private TrainingService trainingService;
@@ -95,6 +99,41 @@ class TrainingServiceTest {
                 LocalDate.of(2026, 7, 21), 60);
 
         assertThat(trainee.getTrainers()).containsExactly(trainer);
+    }
+
+    @Test
+    void addTrainingNotifiesTheWorkloadService() {
+        when(traineeService.getByUsername("John.Doe")).thenReturn(trainee);
+        when(trainerService.getByUsername("Mary.Smith")).thenReturn(trainer);
+
+        Training training = trainingService.addTraining("John.Doe", "Mary.Smith", "Morning cardio",
+                LocalDate.of(2026, 7, 21), 60);
+
+        verify(workloadNotifier).notifyAdded(training);
+    }
+
+    @Test
+    void deleteTrainingNotifiesTheWorkloadServiceAndRemovesTheTraining() {
+        Training training = new Training();
+        training.setId(5L);
+        training.setTrainer(trainer);
+        training.setTrainingName("Morning cardio");
+        training.setTrainingDate(LocalDate.of(2026, 7, 21));
+        training.setTrainingDuration(60);
+        when(trainingDAO.findById(5L)).thenReturn(java.util.Optional.of(training));
+
+        trainingService.deleteTraining(5L);
+
+        verify(workloadNotifier).notifyDeleted(training);
+        verify(trainingDAO).delete(training);
+    }
+
+    @Test
+    void deleteTrainingFailsWhenTheTrainingDoesNotExist() {
+        when(trainingDAO.findById(99L)).thenReturn(java.util.Optional.empty());
+
+        assertThatThrownBy(() -> trainingService.deleteTraining(99L))
+                .isInstanceOf(NotFoundException.class);
     }
 
     @Test

@@ -14,10 +14,34 @@ spring:
     console:
       enabled: false
 
+  cloud:
+    openfeign:
+      circuitbreaker:
+        enabled: true
+
 gymcrm:
   hibernate:
     hbm2ddl-auto: create-drop
     show-sql: false
+
+# Tests must not reach a real Eureka server. The Feign circuit breaker stays enabled so calls
+# to the (absent) workload service resolve through the fallback instead of failing the test.
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      trainer-workload-service:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+  timelimiter:
+    instances:
+      trainer-workload-service:
+        timeout-duration: 3s
 
 # Security settings for tests (the test application.yml shadows the main one on the classpath).
 security:

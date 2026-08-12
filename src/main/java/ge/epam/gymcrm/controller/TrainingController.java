@@ -12,6 +12,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -19,7 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/trainings")
-@Tag(name = "Trainings", description = "Adding trainings. Trainings cannot be updated or deleted via REST.")
+@Tag(name = "Trainings", description = "Adding and cancelling trainings.")
 public class TrainingController {
 
     private final TrainingService trainingService;
@@ -49,6 +51,21 @@ public class TrainingController {
                 request.trainingName(),
                 request.trainingDate(),
                 request.trainingDuration());
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "Delete (cancel) a training",
+            description = "Removes a training and subtracts its hours from the trainer's workload summary.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Training deleted", content = @Content),
+            @ApiResponse(responseCode = "401", description = "Not authenticated",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Training not found",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteTraining(@PathVariable Long id) {
+        trainingService.deleteTraining(id);
         return ResponseEntity.ok().build();
     }
 }
