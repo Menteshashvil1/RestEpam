@@ -38,16 +38,17 @@
             <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
         </dependency>
 
-        <!-- Declarative REST client for the secondary microservice -->
+        <!-- Asynchronous messaging: publishes trainer workload events to ActiveMQ -->
         <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-openfeign</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-activemq</artifactId>
         </dependency>
 
-        <!-- Circuit breaker (Resilience4j) backing the Feign client -->
+        <!-- Embedded broker for the messaging tests -->
         <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-circuitbreaker-resilience4j</artifactId>
+            <groupId>org.apache.activemq</groupId>
+            <artifactId>activemq-broker</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <!-- Bean validation on request DTOs -->

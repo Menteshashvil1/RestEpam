@@ -11,12 +11,19 @@ spring:
   jackson:
     default-property-inclusion: non_null
 
+  activemq:
+    broker-url: ${ACTIVEMQ_BROKER_URL:tcp://localhost:61616}
+    user: ${ACTIVEMQ_USER:admin}
+    password: ${ACTIVEMQ_PASSWORD:admin}
+    packages:
+      trust-all: false
+
 server:
   port: 8080
   error:
     include-message: always
 
-# Register with the Eureka discovery service and resolve the workload service by its id.
+# Register with the Eureka discovery service.
 eureka:
   client:
     service-url:
@@ -24,22 +31,10 @@ eureka:
   instance:
     prefer-ip-address: true
 
-# Route Feign calls through the Resilience4j circuit breaker so a workload-service outage
-# is handled by the fallback instead of breaking the main flow.
-spring.cloud.openfeign.circuitbreaker.enabled: true
-
-resilience4j:
-  circuitbreaker:
-    instances:
-      trainer-workload-service:
-        sliding-window-size: 10
-        failure-rate-threshold: 50
-        wait-duration-in-open-state: 10s
-        permitted-number-of-calls-in-half-open-state: 3
-  timelimiter:
-    instances:
-      trainer-workload-service:
-        timeout-duration: 5s
+gymcrm:
+  messaging:
+    workload-queue: ${WORKLOAD_QUEUE:trainer.workload.queue}
+    send-timeout-ms: 5000
 
 springdoc:
   swagger-ui:
