@@ -6,9 +6,10 @@ three repositories plus an ActiveMQ broker, and they must be run together.
 | Component | Repository / image | Port | Role |
 |---|---|---|---|
 | Main service (Gym CRM) | this repo — `RestEpam` | 8080 | REST API; **publishes** workload events |
-| Trainer Workload Service | https://github.com/Menteshashvil1/trainer-workload-service | 8081 | **Consumes** workload events; keeps monthly summaries in-memory |
+| Trainer Workload Service | https://github.com/Menteshashvil1/trainer-workload-service | 8081 | **Consumes** workload events; stores monthly summaries in MongoDB |
 | Eureka Discovery Server | https://github.com/Menteshashvil1/eureka-server | 8761 | Service registry |
 | ActiveMQ broker | `apache/activemq-classic` | 61616 / 8161 | Transports the events |
+| MongoDB | `mongo` | 27017 | Stores the trainers monthly summaries |
 
 ## Communication between the services
 
@@ -25,7 +26,7 @@ Client ──► Main (RestEpam) ──POST   /api/v1/trainings         (ADD)   
                                         (JSON text message + JWT + transactionId)
                                                                        ▼
                                      Trainer Workload Service  @JmsListener
-                                        ├─ valid   ──► in-memory monthly summary
+                                        ├─ valid   ──► MongoDB monthly summary
                                         └─ invalid ──► trainer.workload.dlq
                                                                        ▼
                               GET /api/v1/workload/{username} ──► summary (REST, read side)
@@ -75,6 +76,32 @@ Two tiers, by failure kind:
   lets it propagate, ActiveMQ redelivers, and once redeliveries are exhausted the broker moves it
   to its own `ActiveMQ.DLQ`.
 
+### Where the summaries are stored
+
+The workload service keeps each trainer's summary as one MongoDB document in the
+`trainer_workloads` collection, shaped as the trainer's profile plus a list of years, each holding
+a list of months:
+
+```json
+{
+  "trainerUsername": "Mary.Smith",
+  "trainerFirstName": "Mary",
+  "trainerLastName": "Smith",
+  "trainerStatus": true,
+  "years": [
+    { "year": 2026, "months": [ { "month": 7, "trainingSummaryDuration": 150 } ] }
+  ]
+}
+```
+
+On each event the service loads the document by username, finds (or creates) the year and month
+taken from the training date, and adds the training duration to the stored
+`trainingSummaryDuration` — subtracting it instead when the event is a `DELETE`, floored at zero.
+Indexes: a unique one on `trainerUsername`, and a compound one on
+`trainerFirstName` + `trainerLastName` backing `GET /api/v1/workload?firstName=..&lastName=..`.
+Concurrent events for the same trainer are made safe by an optimistic-locking version field; a
+clash makes the broker redeliver the message.
+
 ### Why there is no circuit breaker any more
 
 The previous module wrapped the synchronous Feign call in a Resilience4j circuit breaker. With
@@ -90,7 +117,7 @@ side, and the dead letter queues above.
 |---|---|
 | Replace REST between microservices with async ActiveMQ | `WorkloadNotifier` (publisher) → `WorkloadMessageListener` (consumer); `POST /api/v1/workload` removed |
 | Dead letter queue for invalid messages | `DeadLetterPublisher` + the reject path in `WorkloadMessageListener` |
-| Monthly summary in an in-memory DB | `WorkloadService` + `TrainerWorkload` in the workload service |
+| Monthly summary persisted in MongoDB | `TrainerWorkloadDocument` + `TrainerWorkloadRepository` + `WorkloadService` in the workload service |
 | Eureka discovery | `eureka-server`; both services register as clients |
 | JWT between services | Minted in `WorkloadNotifier`, verified in `WorkloadMessageListener` via the shared `security.jwt.secret` |
 | Two levels of logging + transactionId | `TransactionLoggingFilter` for HTTP; `TRANSACTION` and `MESSAGING` loggers in the listener for the queue, correlated by the propagated `transactionId` |
@@ -105,10 +132,11 @@ mvn clean package
 
 ## Run
 
-Start the broker first:
+Start the broker and the database first:
 
 ```bash
 docker run -d --name activemq -p 61616:61616 -p 8161:8161 apache/activemq-classic:6.1.4
+docker run -d --name mongo -p 27017:27017 mongo:7
 ```
 
 Then, in order:
@@ -125,9 +153,9 @@ Both services must share one JWT secret, so the token the main service signs ver
 export SECURITY_JWT_SECRET=<same-256-bit-secret-for-both>
 ```
 
-Broker address and queue names are overridable via `ACTIVEMQ_BROKER_URL`, `ACTIVEMQ_USER`,
-`ACTIVEMQ_PASSWORD`, `WORKLOAD_QUEUE` and `WORKLOAD_DLQ`. The tests need none of this — they run
-against an embedded in-VM broker.
+Broker address, database URI and queue names are overridable via `ACTIVEMQ_BROKER_URL`, `ACTIVEMQ_USER`,
+`ACTIVEMQ_PASSWORD`, `MONGODB_URI`, `WORKLOAD_QUEUE` and `WORKLOAD_DLQ`. The tests need none of
+this — they run against an embedded in-VM broker with the database layer stubbed.
 
 - ActiveMQ console — http://localhost:8161 (`admin`/`admin`): watch `trainer.workload.queue` and
   `trainer.workload.dlq`
