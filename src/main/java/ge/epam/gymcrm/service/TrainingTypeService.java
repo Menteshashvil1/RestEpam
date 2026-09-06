@@ -9,10 +9,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-/**
- * Read only access to the training types: the table holds a constant list of values
- * that cannot be updated from the application.
- */
 @Service
 @Transactional(readOnly = true)
 public class TrainingTypeService {

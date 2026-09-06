@@ -33,7 +33,6 @@ public class TrainerDAO {
         return Optional.ofNullable(sessionFactory.getCurrentSession().get(Trainer.class, id));
     }
 
-    /** The trainee list is fetched eagerly: the REST layer maps it outside the transaction. */
     public Optional<Trainer> findByUsername(String username) {
         return sessionFactory.getCurrentSession()
                 .createQuery("""

@@ -47,10 +47,6 @@ public class TrainerService {
     @Autowired
     public void setMetrics(GymMetrics metrics) { this.metrics = metrics; }
 
-    /**
-     * Registers a trainer. The same person cannot hold both a trainer and a trainee
-     * profile, so an existing trainee with the same name rejects the registration.
-     */
     public Trainer register(String firstName, String lastName, Long specializationId) {
         if (traineeDAO.existsByName(firstName, lastName)) {
             throw new ConflictException(
@@ -70,7 +66,6 @@ public class TrainerService {
         return trainer;
     }
 
-    /** Total number of trainer profiles, used by the Prometheus gauge. */
     @Transactional(readOnly = true)
     public long count() {
         return trainerDAO.count();
@@ -82,7 +77,6 @@ public class TrainerService {
                 .orElseThrow(() -> new NotFoundException("Trainer not found: " + username));
     }
 
-    /** Specialization is read only, so only the name and the active flag are updated. */
     public Trainer update(String username, String firstName, String lastName, boolean isActive) {
         Trainer trainer = getByUsername(username);
         trainer.getUser().setFirstName(firstName);
@@ -94,7 +88,6 @@ public class TrainerService {
         return trainer;
     }
 
-    /** Activate/de-activate is not idempotent: repeating the current state is rejected. */
     public void setActive(String username, boolean isActive) {
         Trainer trainer = getByUsername(username);
         if (trainer.getUser().isActive() == isActive) {

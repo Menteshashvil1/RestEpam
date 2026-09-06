@@ -25,7 +25,6 @@ public class UserDAO {
                 .uniqueResultOptional();
     }
 
-    /** Usernames already taken, used by the username generation rule. */
     public List<String> findUsernamesStartingWith(String base) {
         return sessionFactory.getCurrentSession()
                 .createQuery("SELECT u.username FROM User u WHERE u.username LIKE :base", String.class)

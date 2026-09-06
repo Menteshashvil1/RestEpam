@@ -2,9 +2,6 @@ spring:
   application:
     name: gym-crm-rest
 
-  # Environment is selected via a Spring profile: local, dev, stg or prod.
-  # Each profile carries its own datasource (see application-<profile>.yml).
-  # Override with --spring.profiles.active=dev (or SPRING_PROFILES_ACTIVE).
   profiles:
     default: local
 
@@ -23,7 +20,6 @@ server:
   error:
     include-message: always
 
-# Register with the Eureka discovery service.
 eureka:
   client:
     service-url:
@@ -43,8 +39,6 @@ springdoc:
   api-docs:
     path: /v3/api-docs
 
-# Actuator: expose health (with details and custom indicators), info, metrics and the
-# Prometheus scrape endpoint at /actuator/prometheus.
 management:
   endpoints:
     web:
@@ -66,8 +60,6 @@ info:
     name: ${spring.application.name}
     description: Gym CRM REST API (EPAM Spring Boot module)
 
-# Spring Security / JWT settings. The secret MUST be overridden per environment (e.g. via
-# SECURITY_JWT_SECRET); the default below is only for local development and is at least 256 bits.
 security:
   jwt:
     secret: ${SECURITY_JWT_SECRET:local-dev-secret-change-me-please-0123456789-abcdef}

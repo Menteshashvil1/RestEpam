@@ -1,22 +1,17 @@
-# Build output
 target/
 
-# Logs
 logs/
 *.log
 
-# IDE
 .idea/
 *.iml
 *.ipr
 *.iws
 .vscode/
 
-# OS
 .DS_Store
 Thumbs.db
 desktop.ini
 
-# Excluded from this repo
 README.md
 Task_Rest.pdf

@@ -1,5 +1,3 @@
-# Tests always run against a fresh in-memory database under a dedicated 'test' profile,
-# so the environment profiles (local/dev/stg/prod) never leak into the test run.
 spring:
   profiles:
     active: test
@@ -28,14 +26,12 @@ gymcrm:
     workload-queue: trainer.workload.queue
     send-timeout-ms: 2000
 
-# Tests must not reach a real Eureka server.
 eureka:
   client:
     enabled: false
     register-with-eureka: false
     fetch-registry: false
 
-# Security settings for tests (the test application.yml shadows the main one on the classpath).
 security:
   jwt:
     secret: test-secret-test-secret-test-secret-0123456789-abcdef
@@ -44,8 +40,6 @@ security:
     allowed-origins: "*"
     allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
 
-# Mirror the actuator exposure of the main configuration so the endpoint tests are meaningful
-# (the test application.yml shadows the main one on the classpath).
 management:
   endpoints:
     web:

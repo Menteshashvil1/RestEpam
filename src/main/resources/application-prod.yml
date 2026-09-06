@@ -1,5 +1,3 @@
-# PRODUCTION: PostgreSQL production database. All credentials are required from the
-# environment (no defaults) and the schema is only validated, never mutated.
 spring:
   datasource:
     url: ${GYMCRM_DB_URL}
