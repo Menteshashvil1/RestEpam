@@ -1,4 +1,3 @@
-# DEV: PostgreSQL development database.
 spring:
   datasource:
     url: ${GYMCRM_DB_URL:jdbc:postgresql://localhost:5432/gymcrm_dev}

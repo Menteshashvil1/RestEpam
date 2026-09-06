@@ -9,15 +9,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-/**
- * Reports the application as DOWN when the training-type reference data has not been seeded,
- * since none of the training-related features work without it. Contributes under the
- * {@code trainingTypes} key of {@code /actuator/health}.
- *
- * A {@link TransactionTemplate} is used rather than {@code @Transactional} because health
- * indicators are instantiated early by the actuator auto-configuration, before the
- * transactional proxying infrastructure would wrap this bean.
- */
 @Component("trainingTypes")
 public class TrainingTypeHealthIndicator implements HealthIndicator {
 

@@ -12,13 +12,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * Verifies the actuator surface: the custom health indicators and the custom Prometheus metrics.
- * <p>
- * Spring Boot's test support disables metrics export by default ({@code
- * management.defaults.metrics.export.enabled=false}) so tests never push to a real backend, so the
- * Prometheus registry is re-enabled explicitly here to exercise {@code /actuator/prometheus}.
- */
 @SpringBootTest(properties = "management.prometheus.metrics.export.enabled=true")
 @AutoConfigureMockMvc
 class ActuatorEndpointsTest {

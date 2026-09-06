@@ -19,18 +19,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
-/**
- * Implements the two logging levels required by the task.
- *
- * <ol>
- *   <li><b>Transaction level</b> — a transactionId is generated (or taken from the
- *       {@code X-Transaction-Id} header when a caller already has one), pushed into the MDC so
- *       every log line of this transaction carries it, and echoed back in the response header so
- *       it can be passed on to downstream services.</li>
- *   <li><b>Rest call level</b> — endpoint, incoming request payload, resulting status code and
- *       response message are logged for every call.</li>
- * </ol>
- */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class TransactionLoggingFilter extends OncePerRequestFilter {
@@ -39,7 +27,6 @@ public class TransactionLoggingFilter extends OncePerRequestFilter {
     private static final Logger restLog = LoggerFactory.getLogger("REST");
 
     private static final int MAX_PAYLOAD_LENGTH = 2_000;
-    /** Keeps passwords out of the logs. */
     private static final Pattern SECRET = Pattern.compile(
             "(\"(?:\\w*[Pp]assword)\"\\s*:\\s*\")[^\"]*(\")");
     private static final Pattern QUERY_SECRET = Pattern.compile("([Pp]assword=)[^&]*");

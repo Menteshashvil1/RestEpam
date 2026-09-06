@@ -24,11 +24,6 @@ class TrainingTypeHealthIndicatorTest {
     @Mock
     private PlatformTransactionManager transactionManager;
 
-    /**
-     * The real {@link org.springframework.transaction.support.TransactionTemplate} invokes the
-     * callback directly against the (mocked) transaction manager, so the DAO stubs are exercised
-     * as-is.
-     */
     private TrainingTypeHealthIndicator newIndicator() {
         return new TrainingTypeHealthIndicator(trainingTypeDAO, transactionManager);
     }

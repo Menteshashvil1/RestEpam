@@ -49,10 +49,6 @@ public class TraineeService {
         this.workloadNotifier = workloadNotifier;
     }
 
-    /**
-     * Registers a trainee. The same person cannot hold both a trainer and a trainee
-     * profile, so an existing trainer with the same name rejects the registration.
-     */
     public Trainee register(String firstName, String lastName, LocalDate dateOfBirth, String address) {
         if (trainerDAO.existsByName(firstName, lastName)) {
             throw new ConflictException(
@@ -72,7 +68,6 @@ public class TraineeService {
         return trainee;
     }
 
-    /** Total number of trainee profiles, used by the Prometheus gauge. */
     @Transactional(readOnly = true)
     public long count() {
         return traineeDAO.count();
@@ -98,11 +93,6 @@ public class TraineeService {
         return trainee;
     }
 
-    /**
-     * Hard delete — the cascade removes the trainee's trainings as well. Every removed training
-     * is reported to the workload microservice as a DELETE so the trainers' monthly summaries
-     * are decremented accordingly.
-     */
     public void delete(String username) {
         Trainee trainee = getByUsername(username);
 
@@ -114,7 +104,6 @@ public class TraineeService {
         log.info("Deleted trainee profile: {}", username);
     }
 
-    /** Activate/de-activate is not idempotent: repeating the current state is rejected. */
     public void setActive(String username, boolean isActive) {
         Trainee trainee = getByUsername(username);
         if (trainee.getUser().isActive() == isActive) {
@@ -139,7 +128,6 @@ public class TraineeService {
         return traineeDAO.findNotAssignedActiveTrainers(trainee.getId());
     }
 
-    /** Replaces the trainee's trainer list with the given trainers. */
     public List<Trainer> updateTrainers(String username, List<String> trainerUsernames) {
         Trainee trainee = getByUsername(username);
         List<Trainer> trainers = new ArrayList<>();

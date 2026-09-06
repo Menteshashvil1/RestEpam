@@ -1,4 +1,3 @@
-# LOCAL: in-memory H2, schema recreated on every start, so the API is usable out of the box.
 spring:
   datasource:
     url: jdbc:h2:mem:gymcrm_local;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE

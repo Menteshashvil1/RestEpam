@@ -10,10 +10,6 @@ import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 
-/**
- * Reports the health of the configured datasource by opening a connection and validating it.
- * Contributes under the {@code database} key of {@code /actuator/health}.
- */
 @Component("database")
 public class DatabaseHealthIndicator implements HealthIndicator {
 

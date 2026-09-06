@@ -44,10 +44,6 @@ public class TrainingService {
         this.workloadNotifier = workloadNotifier;
     }
 
-    /**
-     * Adds a training. The training type is not part of the request — it is taken from the
-     * trainer's specialization. Trainings can neither be updated nor deleted via REST.
-     */
     public Training addTraining(String traineeUsername, String trainerUsername, String trainingName,
                                 LocalDate trainingDate, int trainingDuration) {
         Trainee trainee = traineeService.getByUsername(traineeUsername);
@@ -63,12 +59,10 @@ public class TrainingService {
         trainingDAO.save(training);
         metrics.recordTrainingCreated();
 
-        // Adding a training implicitly assigns the trainer to the trainee.
         if (!trainee.getTrainers().contains(trainer)) {
             trainee.getTrainers().add(trainer);
         }
 
-        // Forward the added workload to the secondary microservice.
         workloadNotifier.notifyAdded(training);
 
         log.info("Added training '{}' for trainee {} with trainer {}",
@@ -76,15 +70,10 @@ public class TrainingService {
         return training;
     }
 
-    /**
-     * Deletes a training and removes its hours from the trainer's workload summary.
-     * A training is deleted, for example, when a planned session is cancelled.
-     */
     public void deleteTraining(Long trainingId) {
         Training training = trainingDAO.findById(trainingId)
                 .orElseThrow(() -> new NotFoundException("Training not found: " + trainingId));
 
-        // Notify before removal while the trainer/date/duration are still available.
         workloadNotifier.notifyDeleted(training);
 
         trainingDAO.delete(training);

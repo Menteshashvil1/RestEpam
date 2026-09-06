@@ -9,19 +9,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-/**
- * Custom business metrics published to Micrometer / Prometheus (scrape at
- * {@code /actuator/prometheus}).
- *
- * <ul>
- *   <li>Counters for registrations, created trainings and authentication outcomes.</li>
- *   <li>Gauges reporting the current number of trainee and trainer profiles.</li>
- * </ul>
- *
- * Counters are incremented from the service layer; gauges poll the DAOs inside a
- * read-only transaction (they are read on the Prometheus scrape thread, which has no
- * transaction of its own).
- */
 @Component
 public class GymMetrics {
 
