@@ -61,9 +61,10 @@ HTTP headers became camelCase):
 | `authToken` | Bearer JWT minted by the main service, replacing the `Authorization` header |
 | `transactionId` | The transaction id of the originating HTTP request, replacing `X-Transaction-Id` |
 
-Both sides pin this contract in tests: `WorkloadPublishingIntegrationTest` asserts what the main
-service puts on the queue, and `WorkloadMessagingIntegrationTest` in the workload service feeds
-that exact JSON through a real broker. A one-sided change breaks a build.
+Both sides pin this contract with Cucumber. The main service's
+`workload-event-publishing.feature` asserts what it puts on the queue, and the workload service's
+`workload-event-consumption.feature` feeds exactly that JSON through a real broker. A one-sided
+change breaks a build.
 
 ### Dead letter queue
 
@@ -121,6 +122,34 @@ side, and the dead letter queues above.
 | Eureka discovery | `eureka-server`; both services register as clients |
 | JWT between services | Minted in `WorkloadNotifier`, verified in `WorkloadMessageListener` via the shared `security.jwt.secret` |
 | Two levels of logging + transactionId | `TransactionLoggingFilter` for HTTP; `TRANSACTION` and `MESSAGING` loggers in the listener for the queue, correlated by the propagated `transactionId` |
+| Component and integration tests in Cucumber | `features/component` and `features/integration` in both services (see Testing below) |
+
+## Testing
+
+Both services carry three layers, and every Cucumber feature covers the positive path and the
+ways it can go wrong.
+
+| Layer | Where | What it covers |
+|---|---|---|
+| Unit | JUnit + Mockito | Services, the publisher, the listener's accept/reject rules, the Mongo mapping and its indexes |
+| Component (Cucumber) | `features/component` | Each service on its own through its real entry points, with the other service absent |
+| Integration (Cucumber) | `features/integration` | The seam between the services: the queue, the message contract, the service token and the dead letter queue |
+
+Component scenarios drive the main service through its REST API (registration, login, recording
+and cancelling trainings) and the workload service through its queue and its read endpoints.
+
+The integration scenarios test the seam from both ends against a real embedded broker: the main
+service's feature asserts the exact JSON and message properties it publishes, and the workload
+service's feature feeds precisely those messages in and checks what is stored or dead-lettered.
+Running both services together additionally needs Docker (broker, database), so that end-to-end
+pass is a manual step; the Cucumber suites need nothing but Maven.
+
+Run one layer on its own with:
+
+```bash
+mvn test -Dtest=CucumberComponentTest
+mvn test -Dtest=CucumberIntegrationTest
+```
 
 ## Build
 
